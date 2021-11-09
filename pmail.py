@@ -1,14 +1,33 @@
 #! /usr/local/bin/python
 # import argparse
+import sys
+import json
 from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
 from email.mime.text import MIMEText
 
-def send(*args,**kwargs):
-    if('auth' in kwargs):
-        params = kwargs['auth']
+def send(**kwargs):
+    print("Sending email")
+    print(kwargs)
+    if('file' in kwargs): #load params from file
+        with open(kwargs['file'],"r") as f:
+            params = json.load(f)
+    elif('auth' in kwargs): #if auth specified as json text
+        params = json.loads(kwargs['auth'])
     else:
-        params = args[0]
-    SMTPserver = params['SMTPserver']
+        try:
+            print("Loading parameters from default file")
+            with open("email.json","r") as f:
+                params = json.load(f)
+        except:
+            print("No parameters specified. Exiting")
+            exit(1)
+    if('SMTPserver' in params):
+        SMTPserver = params['SMTPserver']
+    elif('server' in params):
+        SMTPserver = params['server']
+    else:
+        print("No server specified")
+        exit(1)
     USERNAME = params['USERNAME']
     if('PASSWORD' in params): 
         PASSWORD = params['PASSWORD']
@@ -80,15 +99,15 @@ def send(*args,**kwargs):
     return True
 
 if(__name__=='__main__'):
-    send()
-    # parser = argparse.ArgumentParser(description="""Send Email""")
-    # parser.add_argument("-p", "--path", help="Path")
-    # parser.add_argument("-c", "--config", help="Config file (config.json)")
-    # args = parser.parse_args()
-    # if(args.path):
-    #     local_path=args.path
-    # elif("download_path" in settings):
-    #     local_path=settings["download_path"]
-    # else:
-    #     local_path="%s/photoframe/"%(os.environ["HOME"])#default path
-    # send(*args,**kwargs)
+    #load args and kwargs and pass them through
+    args = []
+    kwargs = {}
+    for arg in sys.argv[1:]:
+        print(arg)
+        if("=" in arg):
+            k = arg.split("=")
+            kwargs[k[0]] = k[1]
+        else:
+            args.append(arg)
+    #pass through
+    send(**kwargs)
