@@ -30,4 +30,4 @@ echo "to : $to"
 echo "subject   : $subject"
 echo "message  : $message"
 
-python pmail.py file=email.json to=$to subject=$subject message=$message
+python pmail.py to=$to subject=$subject message=$message

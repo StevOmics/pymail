@@ -1,33 +1,22 @@
 #! /usr/local/bin/python
 # import argparse
 import sys
+import os
 import json
+from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
+from email.mime.text import MIMEText
+from os.path import expanduser
+home = expanduser("~")
+default_path=os.path.join(home,".mail")
+#! /usr/local/bin/python
+# from smtplib import SMTP_SSL as SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
 from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
 from email.mime.text import MIMEText
 
 def send(**kwargs):
-    print("Sending email")
-    print(kwargs)
-    if('file' in kwargs): #load params from file
-        with open(kwargs['file'],"r") as f:
-            params = json.load(f)
-    elif('auth' in kwargs): #if auth specified as json text
-        params = json.loads(kwargs['auth'])
-    else:
-        try:
-            print("Loading parameters from default file")
-            with open("email.json","r") as f:
-                params = json.load(f)
-        except:
-            print("No parameters specified. Exiting")
-            exit(1)
-    if('SMTPserver' in params):
-        SMTPserver = params['SMTPserver']
-    elif('server' in params):
-        SMTPserver = params['server']
-    else:
-        print("No server specified")
-        exit(1)
+    with open(default_path, "r") as f:
+        params = json.load(f)
+    SMTPserver = params['SMTPserver']
     USERNAME = params['USERNAME']
     if('PASSWORD' in params): 
         PASSWORD = params['PASSWORD']
@@ -60,6 +49,7 @@ def send(**kwargs):
         subject=kwargs['subject']
     else:
         subject = "Message from: "+sender
+    if(len(subject)<2): subject="Message from "+sender
     if('message' in kwargs):
         content=kwargs['message']
     else:
