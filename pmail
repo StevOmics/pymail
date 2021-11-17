@@ -1,33 +1,132 @@
-#!/bin/bash
+#! /usr/bin/python
+import argparse
+import sys
+import os
+import json
+from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
+from email.mime.text import MIMEText
+from os.path import expanduser
+home = expanduser("~")
+default_path=os.path.join(home,".mail")
+#! /usr/local/bin/python
+# from smtplib import SMTP_SSL as SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
+from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
+from email.mime.text import MIMEText
+verbose = False
 
-########################## Virtualenv: ##########################
-install_dir="${PWD}" #update install directory
-source "${install_dir}/env/bin/activate"
-cd ${install_dir}
-function usage () {
-    cat <<EOUSAGE
-$(basename $0) hvr:e:
-    show usage
-EOUSAGE
-}
-while getopts :t:s: option
-do 
-    case "${option}"
-        in
-        t)to=${OPTARG};;
-        s)subject=${OPTARG};;
-        *)
-          echo "Invalid option: -$OPTARG" >&2
-          usage
-          exit 2;
-    esac
-done
-shift $((OPTIND - 1))
-message=$@
+def send(**kwargs):
+    with open(default_path, "r") as f:
+        params = json.load(f)
+    SMTPserver = params['SMTPserver']
+    USERNAME = params['USERNAME']
+    if('PASSWORD' in params): 
+        PASSWORD = params['PASSWORD']
+    else:
+        if(verbose): print("[Warning!] No password specified!")
+        PASSWORD = None
+    #FROM:
+    if('sender' in params): sender = params['sender']
+    else: sender = params['USERNAME']
+    if('type' in kwargs):
+        text_subtype = kwargs['type']
+    else:
+        text_subtype = 'plain'
+    #TO:
+    if('destination' in kwargs):
+        destination =kwargs['destination']
+    elif('to' in kwargs):
+        destination = kwargs['to']
+    elif('destination' in params):
+        if(verbose): print("Trying to load destination from file")
+        destination = params['destination']
+    elif('to' in params):
+        if(verbose): print("Trying to load destination from file")
+        destination = params['to']
+    else:
+        if(verbose): print("No destination specified. Using sender address")
+        destination = sender
 
-echo "Sending email..."
-echo "to : $to"
-echo "subject   : $subject"
-echo "message  : $message"
+    if('cc' in kwargs):
+        cc = kwargs['cc']
+    else:
+        cc = None
+    if('bcc' in kwargs):
+        bcc = kwargs['bcc']    
+    else:
+        bcc = None
+    #SUBJECT:
+    if('subject' in kwargs):
+        subject=kwargs['subject']
+    else:
+        subject = "Message from: "+sender
+    if(len(subject)<2): subject="Message from "+sender
+    if('message' in kwargs):
+        content=kwargs['message']
+    else:
+        content = subject
+    msg = MIMEText(content, text_subtype)
+    msg['Subject']= subject
+    msg['From']   = sender # some SMTP servers will do this automatically, not all
+    msg['To'] = destination
+    if(cc): msg['CC'] = cc
+    if(bcc): msg['BCC'] = bcc
+    if(verbose): print("Sending message: "+subject)
+    if(PASSWORD):
+        try:
+            conn = SMTP_SSL(SMTPserver)
+            # conn.set_debuglevel(False)
+            conn.login(USERNAME, PASSWORD)
+        except:
+            if(verbose): print("Unable to authenticate with secure SMTP with SSL. Trying SMTP.")
+            try:
+                conn = SMTP(SMTPserver)
+                conn.login(USERNAME, PASSWORD)
+            except:
+                conn = SMTP(SMTPserver)
+    else:
+        if(verbose): print("Trying without authenticating.")
+        conn = SMTP(SMTPserver)
+    try:
+        if(verbose): print("[Sending email message]")
+        # if(verbose): print("Sender: "+msg['From'])
+        # if(verbose): print("To: "+msg['To'])
+        # if(verbose): print("Subject: "+msg['Subject'])
+        if(verbose): print(msg.as_string())
+        conn.sendmail(sender, destination, msg.as_string())
+    except Exception as e:
+        if(verbose): print("Oh no! Encountered an error sending this message!")
+        if(verbose): print(e)
+        raise Exception("[Error] Unable to send message")
+    finally:
+        conn.quit()
+    return True
 
-python pmail.py to=$to subject=$subject message=$message
+if(__name__=='__main__'):
+    kwargs = {}
+    parser = argparse.ArgumentParser()
+    parser.add_argument("to", type=str,help="destination")
+    parser.add_argument("-v", "--verbose", action="store_true",help="increase output verbosity")
+    parser.add_argument("-s", "--subject",help="Subject")
+    parser.add_argument("-c", "--cc",help="CC recipients")
+    parser.add_argument("-b", "--bcc",help="BCC recipients")
+    parser.add_argument("-r", "--source",help="From address")
+    parser.add_argument("-m", "--message",help="Specify message")
+    args = parser.parse_args()
+    if(args.verbose): verbose = True
+    if(verbose): print("to: "+args.to)
+    if(args.message):
+        kwargs['message'] = args.message
+    else:
+        kwargs['message'] = "\n".join(sys.stdin)
+    if(args.to):
+        kwargs['to'] = args.to
+    if(args.source):
+        kwargs['from'] = args.source 
+    if(args.cc):
+        kwargs['cc'] = args.cc
+    if(args.bcc):
+        kwargs['bcc'] = args.bcc
+    if(args.subject): 
+        kwargs['subject'] = args.subject
+    if(verbose): print("Message: "+kwargs['message'])
+    send(**kwargs)
