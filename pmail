@@ -29,12 +29,19 @@ def send(**kwargs):
         PASSWORD = None
 
     #FROM:
-    if('sender' in params): sender = params['sender']
-    else: sender = params['USERNAME']
+    if('from' in kwargs):
+        sender = kwargs['from']
+    elif('sender' in params): 
+        sender = params['sender']
+    else: 
+        sender = params['USERNAME']
+    
+    #TYPE:
     if('type' in kwargs):
         text_subtype = kwargs['type']
     else:
         text_subtype = 'plain'
+
     #TO:
     if('to' in kwargs):
         to =kwargs['to']
@@ -120,24 +127,24 @@ def send(**kwargs):
 if(__name__=='__main__'):
     kwargs = {}
     parser = argparse.ArgumentParser(description="Python mail, compatible with Linux mail.")
-    parser.add_argument("to", type=str,help="destination")
+    # parser.add_argument("to", type=str,help="destination")
     parser.add_argument("-v", "--verbose", action="store_true",help="increase output verbosity")
-    parser.add_argument("-s", "--subject",help="Subject")
+    parser.add_argument("-s", "--subject",help="Subject",nargs='+')
     parser.add_argument("-c", "--cc",help="CC recipients")
     parser.add_argument("-b", "--bcc",help="BCC recipients")
     parser.add_argument("-r", "--sender",help="From address")
     parser.add_argument("-m", "--message",help="Specify message")
     parser.add_argument("-a", "--attachment",help="Specify attachment")
     parser.add_argument("-f", "--config",help="Specify config file path (default: ~/.mail)")
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    args, unknownargs = parser.parse_known_args()
     if(args.verbose): verbose = True
-    if(verbose): print("to: "+args.to)
     if(args.message):
         kwargs['message'] = args.message
     else:
         kwargs['message'] = "\n".join(sys.stdin)
-    if(args.to):
-        kwargs['to'] = args.to
+    if(len(unknownargs)>0):
+        kwargs['to'] = unknownargs[0]
     if(args.sender):
         kwargs['from'] = args.sender 
     if(args.cc):
@@ -145,7 +152,8 @@ if(__name__=='__main__'):
     if(args.bcc):
         kwargs['bcc'] = args.bcc
     if(args.subject): 
-        kwargs['subject'] = args.subject
+        # print(args.subject)
+        kwargs['subject'] = " ".join(args.subject).replace("\xe2\x80\x9c","").replace("\xe2\x80\x9d","")
     if(args.attachment):
         kwargs['attachment'] = args.attachment
     if(args.config):
