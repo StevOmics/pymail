@@ -10,7 +10,7 @@ Python SMTP client.
 ```
 {
     "SMTPserver" : "[smtp.mail.yahoo.com]",
-    "sender" :     "[user]@yahoo.com",
+    "sender" :     "[optional, used to specify sender... user@yahoo.com]",
     "USERNAME" : "[user]",
     "PASSWORD" : "[password]",
     "to":"[optional... destination@example.com]"
