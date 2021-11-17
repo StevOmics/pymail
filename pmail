@@ -2,13 +2,13 @@
 import argparse
 import sys
 import os
+from os.path import basename
+from os.path import expanduser
 import json
 from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol (port 465, uses SSL)
 from email.mime.text import MIMEText
-from os.path import basename
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
-from os.path import expanduser
 home = expanduser("~")
 default_path=os.path.join(home,".mail")
 verbose = False
