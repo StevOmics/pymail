@@ -1,4 +1,6 @@
 #! /usr/bin/python
+# -*- coding: utf-8 -*-
+
 import argparse
 import sys
 import os
@@ -20,35 +22,64 @@ def clean_text(str):
     str = re.sub(r'[^a-zA-Z0-9-_#@%&!.;:*$,|\-() ]','', str)
     return str
 
+def remove_returns(str):
+    return re.sub(r'\n',' ',str)
+
 def send(**kwargs):
+    #load params
     if('config' in kwargs): 
         config_path = kwargs['config']
     else:
         config_path = default_path
     with open(config_path, "r") as f:
         params = json.load(f)
-    SMTPserver = params['SMTPserver']
-    USERNAME = params['USERNAME']
-    if('PASSWORD' in params): 
-        PASSWORD = params['PASSWORD']
+    #### define required prameters: ####
+    #SERVER
+    try:
+        if('server' in kwargs): server = kwargs['server']
+        else: server = params['server']
+    except:
+        try:
+            server = params['SMTPserver']
+        except:
+            print("[Error]SMTP Server not defined")
+            print("Example: \"SMTPserver\" : \"smtp.mail.yahoo.com\"")
+            print("Exiting")
+            exit(1)
+    #USERNAME
+    try:
+        if('username' in kwargs): username = kwargs['username']
+        else: username = params['USERNAME']
+    except:
+        try:
+            username = params['username']
+        except:
+            try:
+                username = params['user']
+            except:
+                try:
+                    username = params['sender'].split("@")[0]
+                except:
+                    print("[Error]No username defined")
+                    print("Exiting")
+                    exit(1)
+    #PASSWORD
+    if('password' in kwargs):
+        password = kwargs['password']
+    elif('PASSWORD' in params): 
+        password = params['PASSWORD']
+    elif('password' in params):
+        password = params['password']
     else:
         if(verbose): print("[Warning!] No password specified!")
-        PASSWORD = None
-
+        password = None
     #FROM:
     if('from' in kwargs):
         sender = kwargs['from']
     elif('sender' in params): 
         sender = params['sender']
     else: 
-        sender = params['USERNAME']
-    
-    #TYPE:
-    if('type' in kwargs):
-        text_subtype = kwargs['type']
-    else:
-        text_subtype = 'plain'
-
+        sender = username
     #TO:
     if('to' in kwargs):
         to =kwargs['to']
@@ -63,7 +94,6 @@ def send(**kwargs):
     else:
         if(verbose): print("No destination specified. Using sender address")
         to = sender
-
     if('cc' in kwargs):
         cc = kwargs['cc']
     else:
@@ -82,6 +112,14 @@ def send(**kwargs):
         content=kwargs['message']
     else:
         content = subject
+        
+    #TYPE:
+    if('type' in kwargs):
+        text_subtype = kwargs['type']
+    else:
+        text_subtype = 'plain'
+
+    #ATTACHMENT:
     if('attachment' in kwargs):
         attachment = kwargs['attachment']
         if(verbose): print("Adding attachment: "+attachment)
@@ -104,21 +142,21 @@ def send(**kwargs):
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(attachment)
         msg.attach(part)
         # After
-    if(PASSWORD):
+    if(password):
         try:
-            conn = SMTP_SSL(SMTPserver)
+            conn = SMTP_SSL(server)
             # conn.set_debuglevel(False)
-            conn.login(USERNAME, PASSWORD)
+            conn.login(username, password)
         except:
             if(verbose): print("Unable to authenticate with secure SMTP with SSL. Trying SMTP.")
             try:
-                conn = SMTP(SMTPserver)
-                conn.login(USERNAME, PASSWORD)
+                conn = SMTP(server)
+                conn.login(username, password)
             except:
-                conn = SMTP(SMTPserver)
+                conn = SMTP(server)
     else:
         if(verbose): print("Trying without authenticating.")
-        conn = SMTP(SMTPserver)
+        conn = SMTP(server)
     try:
         if(verbose): print("[Sending email message]")
         if(verbose): print(msg.as_string())
@@ -136,34 +174,48 @@ if(__name__=='__main__'):
     parser = argparse.ArgumentParser(description="Python mail, compatible with Linux mail.")
     # parser.add_argument("to", type=str,help="destination")
     parser.add_argument("-v", "--verbose", action="store_true",help="increase output verbosity")
-    parser.add_argument("-s", "--subject",help="Subject",nargs='+')
+    parser.add_argument("-s", "--subject",help="Subject")#,nargs='+')
     parser.add_argument("-c", "--cc",help="CC recipients")
     parser.add_argument("-b", "--bcc",help="BCC recipients")
     parser.add_argument("-r", "--sender",help="From address")
     parser.add_argument("-m", "--message",help="Specify message")
     parser.add_argument("-a", "--attachment",help="Specify attachment")
     parser.add_argument("-f", "--config",help="Specify config file path (default: ~/.mail)")
+    parser.add_argument("-u", "--username",help="Specify username")
+    parser.add_argument("-p", "--password",help="Specify password") 
+    parser.add_argument("-e", "--server",help="Specify SMTP server")
     # args = parser.parse_args()
     args, unknownargs = parser.parse_known_args()
-    if(args.verbose): verbose = True
-    if(args.message):
-        kwargs['message'] = args.message
-    else:
-        kwargs['message'] = "\n".join(sys.stdin)
-    if(len(unknownargs)>0):
+    # print(args)
+    # print(unknownargs)
+    if(args.verbose): 
+        verbose = True
+    try:
         kwargs['to'] = unknownargs[0]
+    except:
+        print("No recipient specified")
     if(args.sender):
         kwargs['from'] = args.sender 
-    if(args.cc):
+    if(args.cc): 
         kwargs['cc'] = args.cc
-    if(args.bcc):
+    if(args.bcc): 
         kwargs['bcc'] = args.bcc
     if(args.subject): 
-        # print(args.subject)
-        kwargs['subject'] = clean_text(" ".join(args.subject))#.replace("\xe2\x80\x9c","").replace("\xe2\x80\x9d","")
+        kwargs['subject'] = remove_returns(clean_text(args.subject))#" ".join(args.subject)))#.replace("\xe2\x80\x9c","").replace("\xe2\x80\x9d","")
     if(args.attachment):
         kwargs['attachment'] = args.attachment
     if(args.config):
         kwargs['config'] = args.config
-    if(verbose): print("Message: "+kwargs['message'])
+    if(args.username): 
+        kwargs['username'] = args.username
+    if(args.password): 
+        kwargs['password'] = args.password
+    if(args.server): 
+        kwargs['server'] = args.smtpserver
+    if(verbose): 
+        print("Message: "+kwargs['message'])
+    if(args.message):
+        kwargs['message'] = args.message
+    else:
+        kwargs['message'] = "\n".join(sys.stdin)
     send(**kwargs)
