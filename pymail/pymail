@@ -9,9 +9,16 @@ from smtplib import SMTP_SSL, SMTP       # this invokes the secure SMTP protocol
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
+import re
+
 home = expanduser("~")
 default_path=os.path.join(home,".mail")
 verbose = False
+
+def clean_text(str):
+    str = re.sub(r'\\x[a-zA-Z0-9]{2}','',str)
+    str = re.sub(r'[^a-zA-Z0-9-_#@%&!.;:*$,|\-() ]','', str)
+    return str
 
 def send(**kwargs):
     if('config' in kwargs): 
@@ -153,7 +160,7 @@ if(__name__=='__main__'):
         kwargs['bcc'] = args.bcc
     if(args.subject): 
         # print(args.subject)
-        kwargs['subject'] = " ".join(args.subject).replace("\xe2\x80\x9c","").replace("\xe2\x80\x9d","")
+        kwargs['subject'] = clean_text(" ".join(args.subject))#.replace("\xe2\x80\x9c","").replace("\xe2\x80\x9d","")
     if(args.attachment):
         kwargs['attachment'] = args.attachment
     if(args.config):
